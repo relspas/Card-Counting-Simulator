@@ -8,15 +8,27 @@ import matplotlib.pyplot as plt
 
 from importer.StrategyImporter import StrategyImporter
 
+np.seterr(divide='ignore', invalid='ignore')
 
-GAMES = 20000
-SHOE_SIZE = 6
-SHOE_PENETRATION = 0.25
-BET_SPREAD = 20.0
+# GAMES = 1000
+# SHOE_SIZE = 6
+# SHOE_PENETRATION = 0.25
+# BET_SPREAD = 20.0
 
 DECK_SIZE = 52.0
 CARDS = {"Ace": 11, "Two": 2, "Three": 3, "Four": 4, "Five": 5, "Six": 6, "Seven": 7, "Eight": 8, "Nine": 9, "Ten": 10, "Jack": 10, "Queen": 10, "King": 10}
+
 BASIC_OMEGA_II = {"Ace": 0, "Two": 1, "Three": 1, "Four": 2, "Five": 2, "Six": 2, "Seven": 1, "Eight": 0, "Nine": -1, "Ten": -2, "Jack": -2, "Queen": -2, "King": -2}
+BASIC = {"Ace": 0, "Two": 0, "Three": 0, "Four": 0, "Five": 0, "Six": 0, "Seven": 0, "Eight": 0, "Nine": 0, "Ten": 0, "Jack": 0, "Queen": 0, "King": 0}
+HI_LO = {"Ace": -1, "Two": 1, "Three": 1, "Four": 1, "Five": 1, "Six": 1, "Seven": 0, "Eight": 0, "Nine": 0, "Ten": -1, "Jack": -1, "Queen": -1, "King": -1}
+K_O = {"Ace": -1, "Two": 1, "Three": 1, "Four": 1, "Five": 1, "Six": 1, "Seven": 1, "Eight": 0, "Nine": 0, "Ten": -1, "Jack": -1, "Queen": -1, "King": -1}
+HI_OPT_I = {"Ace": 0, "Two": 0, "Three": 1, "Four": 1, "Five": 1, "Six": 1, "Seven": 0, "Eight": 0, "Nine": 0, "Ten": -1, "Jack": -1, "Queen": -1, "King": -1}
+HI_OPT_II = {"Ace": 0, "Two": 1, "Three": 1, "Four": 2, "Five": 2, "Six": 1, "Seven": 1, "Eight": 0, "Nine": 0, "Ten": -2, "Jack": -2, "Queen": -2, "King": -2}
+HALVES = {"Ace": -1, "Two": 0.5, "Three": 1, "Four": 1, "Five": 1.5, "Six": 1, "Seven": 0.5, "Eight": 0, "Nine": -0.5, "Ten": -1, "Jack": -1, "Queen": -1, "King": -1}
+RED_SEVEN = {"Ace": -1, "Two": 1, "Three": 1, "Four": 1, "Five": 1, "Six": 1, "Seven": 0.5, "Eight": 0, "Nine": 0, "Ten": -1, "Jack": -1, "Queen": -1, "King": -1}
+ZEN = {"Ace": -1, "Two": 1, "Three": 1, "Four": 2, "Five": 2, "Six": 2, "Seven": 1, "Eight": 0, "Nine": 0, "Ten": -2, "Jack": -2, "Queen": -2, "King": -2}
+
+# PRINT_OUTPUT_PER_GAME = False
 
 BLACKJACK_RULES = {
     'triple7': False,  # Count 3x7 as a blackjack
@@ -101,13 +113,34 @@ class Shoe(object):
         """
         Add the dealt card to current count.
         """
-        self.count += BASIC_OMEGA_II[card.name]
+        #Choose one of the counting choices below
+        if CHOOSE_BASIC_OMEGA_II:
+            self.count += BASIC_OMEGA_II[card.name]
+        elif CHOOSE_HI_LO:
+            self.count += HI_LO[card.name]
+        elif CHOOSE_K_O:
+            self.count += K_O[card.name]
+        elif CHOOSE_HI_OPT_I:
+            self.count += HI_OPT_I[card.name]
+        elif CHOOSE_HI_OPT_II:
+            self.count += HI_OPT_II[card.name]
+        elif CHOOSE_HALVES:
+            self.count += HALVES[card.name]
+        elif CHOOSE_RED_SEVEN:
+            self.count += RED_SEVEN[card.name]
+        elif CHOOSE_ZEN:
+            self.count += ZEN[card.name]
+        else:
+            self.count += BASIC[card.name]
+            
         self.count_history.append(self.truecount())
 
     def truecount(self):
         """
         Returns: The current true count.
         """
+        # print "decks " + str(self.decks)
+        # print "shoe penet. " + str(self.shoe_penetration())
         return self.count / (self.decks * self.shoe_penetration())
 
     def shoe_penetration(self):
@@ -454,7 +487,8 @@ class Game(object):
 
 
 if __name__ == "__main__":
-    importer = StrategyImporter(sys.argv[1])
+    # importer = StrategyImporter(sys.argv[1])
+    importer = StrategyImporter("strategy/BasicStrategy.csv")
     HARD_STRATEGY, SOFT_STRATEGY, PAIR_STRATEGY = importer.import_player_strategy()
 
     moneys = []
@@ -471,8 +505,8 @@ if __name__ == "__main__":
         moneys.append(game.get_money())
         bets.append(game.get_bet())
         countings += game.shoe.count_history
-
-        print("WIN for Game no. %d: %s (%s bet)" % (g + 1, "{0:.2f}".format(game.get_money()), "{0:.2f}".format(game.get_bet())))
+        if PRINT_OUTPUT_PER_GAME:
+        	print("WIN for Game no. %d: %s (%s bet)" % (g + 1, "{0:.2f}".format(game.get_money()), "{0:.2f}".format(game.get_bet())))
 
     sume = 0.0
     total_bet = 0.0
@@ -485,13 +519,14 @@ if __name__ == "__main__":
     print "%0.2f total bet" % total_bet
     print("Overall winnings: {} (edge = {} %)".format("{0:.2f}".format(sume), "{0:.3f}".format(100.0*sume/total_bet)))
 
-    moneys = sorted(moneys)
-    fit = stats.norm.pdf(moneys, np.mean(moneys), np.std(moneys))  # this is a fitting indeed
-    pl.plot(moneys, fit, '-o')
-    pl.hist(moneys, normed=True)
-    pl.show()
+    # moneys = sorted(moneys)
+    # fit = stats.norm.pdf(moneys, np.mean(moneys), np.std(moneys))  # this is a fitting indeed
+    # pl.plot(moneys, fit, '-o')
+    # pl.xlabel('# Hands Won - Lost')
+    # pl.hist(moneys, normed=True)
+    # pl.show()
 
-    plt.ylabel('count')
-    plt.plot(countings, label='x')
-    plt.legend()
-    plt.show()
+    # plt.ylabel('count')
+    # plt.plot(countings, label='x')
+    # plt.legend()
+    # plt.show()
