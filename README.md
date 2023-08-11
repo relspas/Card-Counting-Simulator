@@ -34,3 +34,7 @@ When comparing the PMF of different card counting strategies, it becomes aparent
 Another analysis we can do is varying the shoe size. As the shoe size grows, the higher potential for variance in hands, but also the higher potential for taking advantage of a running count.
 
 ![Probability distribution of hands won and lost varying nothing but shoe size](/documentation/shoe_size.png?raw=true)
+
+To minimize the advantage of card counting today, casinos implement a maximum shoe depth which limits how many cards deep into a shoe are playable in any given game. After 25% of the shoe is completed for example, the entire shoe might be reshuffled, requiring card counters to start over their counting. Below is an example of how the edge of the Omega II strategy changes with an adjustment of the shoe depth. as the depth is reduced, establishing an edge gets harder and harder.
+
+![Shoe Depth vs percent edge with the Omega II strategy](/documentation/shoe_penetration.png?raw=true)
