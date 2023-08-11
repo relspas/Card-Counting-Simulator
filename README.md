@@ -33,4 +33,4 @@ When comparing the PMF of different card counting strategies, it becomes aparent
 
 Another analysis we can do is varying the shoe size. As the shoe size grows, the higher potential for variance in hands, but also the higher potential for taking advantage of a running count.
 
-![Probability distribution of hands won and lost varying nothing but shoe size](/documentation/PMF_card_counting.png?raw=true)
+![Probability distribution of hands won and lost varying nothing but shoe size](/documentation/shoe_size.png?raw=true)
