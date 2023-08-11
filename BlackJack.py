@@ -10,24 +10,14 @@ from importer.StrategyImporter import StrategyImporter
 
 np.seterr(divide='ignore', invalid='ignore')
 
-# GAMES = 1000
-# SHOE_SIZE = 6
-# SHOE_PENETRATION = 0.25
-# BET_SPREAD = 20.0
-
 DECK_SIZE = 52.0
 CARDS = {"Ace": 11, "Two": 2, "Three": 3, "Four": 4, "Five": 5, "Six": 6, "Seven": 7, "Eight": 8, "Nine": 9, "Ten": 10, "Jack": 10, "Queen": 10, "King": 10}
 
-# PRINT_OUTPUT_PER_GAME = False
+PRINT_OUTPUT_PER_GAME = False
 
 BLACKJACK_RULES = {
     'triple7': False,  # Count 3x7 as a blackjack
 }
-
-HARD_STRATEGY = {}
-SOFT_STRATEGY = {}
-PAIR_STRATEGY = {}
-
 
 class Card(object):
     """
@@ -47,11 +37,13 @@ class Shoe(object):
     """
     reshuffle = False
 
-    def __init__(self, decks):
+    def __init__(self, decks, shoe_penetration_max, counting_strategy):
         self.count = 0
         self.count_history = []
         self.ideal_count = {}
         self.decks = decks
+        self.shoe_penetration_max = shoe_penetration_max
+        self.counting_strategy = counting_strategy
         self.cards = self.init_cards()
         self.init_count()
 
@@ -82,14 +74,14 @@ class Shoe(object):
         is a dictionary containing (card name - number of occurrences in shoe) pairs
         """
         for card in CARDS:
-            self.ideal_count[card] = 4 * SHOE_SIZE
+            self.ideal_count[card] = 4 * self.decks
 
     def deal(self):
         """
         Returns:    The next card off the shoe. If the shoe penetration is reached,
                     the shoe gets reshuffled.
         """
-        if self.shoe_penetration() < SHOE_PENETRATION:
+        if self.shoe_penetration() < self.shoe_penetration_max:
             self.reshuffle = True
         card = self.cards.pop()
 
@@ -104,7 +96,7 @@ class Shoe(object):
         Add the dealt card to current count.
         """
         #Choose one of the counting choices below
-        self.count += COUNTING_STRATEGY[card.name]
+        self.count += self.counting_strategy[card.name]
             
         self.count_history.append(self.truecount())
 
@@ -253,9 +245,12 @@ class Player(object):
     """
     Represent a player
     """
-    def __init__(self, hand=None, dealer_hand=None):
+    def __init__(self, soft_strategy, pair_strategy, hard_strategy, hand=None, dealer_hand=None):
         self.hands = [hand]
         self.dealer_hand = dealer_hand
+        self.soft_strategy = soft_strategy
+        self.pair_strategy = pair_strategy
+        self.hard_strategy = hard_strategy
 
     def set_hands(self, new_hand, new_dealer_hand):
         self.hands = [new_hand]
@@ -274,11 +269,11 @@ class Player(object):
 
         while not hand.busted() and not hand.blackjack():
             if hand.soft():
-                flag = SOFT_STRATEGY[hand.value][self.dealer_hand.cards[0].name]
+                flag = self.soft_strategy[hand.value][self.dealer_hand.cards[0].name]
             elif hand.splitable():
-                flag = PAIR_STRATEGY[hand.value][self.dealer_hand.cards[0].name]
+                flag = self.pair_strategy[hand.value][self.dealer_hand.cards[0].name]
             else:
-                flag = HARD_STRATEGY[hand.value][self.dealer_hand.cards[0].name]
+                flag = self.hard_strategy[hand.value][self.dealer_hand.cards[0].name]
 
             if flag == 'D':
                 if hand.length() == 2:
@@ -376,13 +371,14 @@ class Game(object):
     """
     A sequence of Blackjack Rounds that keeps track of total money won or lost
     """
-    def __init__(self):
-        self.shoe = Shoe(SHOE_SIZE)
+    def __init__(self, shoe_size, shoe_penetration, counting_strategy, soft_strategy, pair_strategy, hard_strategy,bet_spread):
+        self.shoe = Shoe(shoe_size, shoe_penetration, counting_strategy)
         self.money = 0.0
         self.bet = 0.0
         self.stake = 1.0
-        self.player = Player()
+        self.player = Player(soft_strategy, pair_strategy, hard_strategy)
         self.dealer = Dealer()
+        self.bet_spread = bet_spread
 
     def get_hand_winnings(self, hand):
         win = 0.0
@@ -428,7 +424,7 @@ class Game(object):
 
     def play_round(self):
         if self.shoe.truecount() > 6:
-            self.stake = BET_SPREAD
+            self.stake = self.bet_spread
         else:
             self.stake = 1.0
 
@@ -458,48 +454,64 @@ class Game(object):
     def get_bet(self):
         return self.bet
 
+class Simulator:
+    def __init__(self,gameCnt,shoe_size,shoe_penetration,counting_strategy,bet_spread):
+        importer = StrategyImporter("strategy/BasicStrategy.csv")
+        self.hard_strategy, self.soft_strategy, self.pair_strategy = importer.import_player_strategy()
+        self.moneys = []
+        self.bets = []
+        self.countings = []
+        self.nb_hands = 0
+        self.sume = 0.0
+        self.total_bet = 0.0
+        self.gameCnt = gameCnt
+        self.shoe_size = shoe_size
+        self.shoe_penetration = shoe_penetration
+        self.counting_strategy = counting_strategy
+        self.bet_spread = bet_spread
 
-if __name__ == "__main__":
-    # importer = StrategyImporter(sys.argv[1])
-    importer = StrategyImporter("strategy/BasicStrategy.csv")
-    HARD_STRATEGY, SOFT_STRATEGY, PAIR_STRATEGY = importer.import_player_strategy()
+    def sim(self):
+        self.moneys = []
+        self.bets = []
+        self.countings = []
+        self.nb_hands = 0
+        for g in range(self.gameCnt):
 
-    moneys = []
-    bets = []
-    countings = []
-    nb_hands = 0
-    for g in range(GAMES):
-        game = Game()
-        while not game.shoe.reshuffle:
-            # print '%s GAME no. %d %s' % (20 * '#', i + 1, 20 * '#')
-            game.play_round()
-            nb_hands += 1
+            game = Game(self.shoe_size, self.shoe_penetration, self.counting_strategy, 
+                self.soft_strategy, self.pair_strategy, self.hard_strategy,
+                self.bet_spread)
 
-        moneys.append(game.get_money())
-        bets.append(game.get_bet())
-        countings += game.shoe.count_history
-        if PRINT_OUTPUT_PER_GAME:
-        	print("WIN for Game no. %d: %s (%s bet)" % (g + 1, "{0:.2f}".format(game.get_money()), "{0:.2f}".format(game.get_bet())))
+            while not game.shoe.reshuffle:
+                # print '%s GAME no. %d %s' % (20 * '#', i + 1, 20 * '#')
+                game.play_round()
+                self.nb_hands += 1
 
-    sume = 0.0
-    total_bet = 0.0
-    for value in moneys:
-        sume += value
-    for value in bets:
-        total_bet += value
+            self.moneys.append(game.get_money())
+            self.bets.append(game.get_bet())
+            self.countings += game.shoe.count_history
 
-    print("\n%d hands overall, %0.2f hands per game on average" % (nb_hands, float(nb_hands) / GAMES))
-    print("%0.2f total bet" % total_bet)
-    print("Overall winnings: {} (edge = {} %)".format("{0:.2f}".format(sume), "{0:.3f}".format(100.0*sume/total_bet)))
+            if PRINT_OUTPUT_PER_GAME:
+            	print("WIN for Game no. %d: %s (%s bet)" % (g + 1, "{0:.2f}".format(game.get_money()), "{0:.2f}".format(game.get_bet())))
 
-    # moneys = sorted(moneys)
-    # fit = stats.norm.pdf(moneys, np.mean(moneys), np.std(moneys))  # this is a fitting indeed
-    # pl.plot(moneys, fit, '-o')
-    # pl.xlabel('# Hands Won - Lost')
-    # pl.hist(moneys, normed=True)
-    # pl.show()
+        self.sume = 0.0
+        self.total_bet = 0.0
+        for value in self.moneys:
+            self.sume += value
+        for value in self.bets:
+            self.total_bet += value
 
-    # plt.ylabel('count')
-    # plt.plot(countings, label='x')
-    # plt.legend()
-    # plt.show()
+        print("\n%d hands overall, %0.2f hands per game on average" % (self.nb_hands, float(self.nb_hands) / self.gameCnt))
+        print("%0.2f total bet" % self.total_bet)
+        print("Overall winnings: {} (edge = {} %)".format("{0:.2f}".format(self.sume), "{0:.3f}".format(100.0*self.sume/self.total_bet)))
+
+        # moneys = sorted(moneys)
+        # fit = stats.norm.pdf(moneys, np.mean(moneys), np.std(moneys))  # this is a fitting indeed
+        # pl.plot(moneys, fit, '-o')
+        # pl.xlabel('# Hands Won - Lost')
+        # pl.hist(moneys, normed=True)
+        # pl.show()
+
+        # plt.ylabel('count')
+        # plt.plot(countings, label='x')
+        # plt.legend()
+        # plt.show()

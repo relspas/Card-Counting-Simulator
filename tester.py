@@ -1,5 +1,12 @@
 import os
 import collections
+import BlackJack
+
+import numpy as np
+import scipy.stats as stats
+import pylab as pl
+import matplotlib.pyplot as plt
+
 
 GAMES = 500
 SHOE_SIZE = 6
@@ -21,22 +28,20 @@ ZEN = {"Ace": -1, "Two": 1, "Three": 1, "Four": 2, "Five": 2, "Six": 2, "Seven":
 strategy_strs = ["BASIC_OMEGA_II", "BASIC", "HI_LO", "K_O", "HI_OPT_I", "HI_OPT_II", "HALVES", "RED_SEVEN", "ZEN"]
 strategies = [BASIC_OMEGA_II,BASIC,HI_LO,K_O,HI_OPT_I,HI_OPT_II,HALVES,RED_SEVEN,ZEN]
 
-def openBlackJackSim(strategy):
-   global COUNTING_STRATEGY
-   COUNTING_STRATEGY = strategy
-   exec(open("BlackJack.py").read(),globals())
-
+def openBlackJackSim(strategy,gameCnt=GAMES,shoe_size=SHOE_SIZE,shoe_penetration=SHOE_PENETRATION,bet_spread=BET_SPREAD):
+   bjSim = BlackJack.Simulator(gameCnt,shoe_size,shoe_penetration,strategy,bet_spread)
+   bjSim.sim()
+   return bjSim
 
 #################
 # shoe size vs. probability
 #################
 def shoe_size_vs_prob():
-   for x in range(2,9):
-      SHOE_SIZE = x
-      openBlackJackSim(BASIC)
-      moneys = sorted(moneys)
+   for shoe_size in range(2,9):
+      bjSim = openBlackJackSim(BASIC,GAMES,shoe_size)
+      moneys = sorted(bjSim.moneys)
       fit = stats.norm.pdf(moneys, np.mean(moneys), np.std(moneys))  # this is a fitting indeed
-      labelName = "Shoe size = " + str(SHOE_SIZE)
+      labelName = "Shoe size = " + str(shoe_size)
       pl.plot(moneys, fit, '-o', label=labelName)
       # pl.hist(moneys, normed=True)
       pl.xlabel('# Hands Won - Lost')
@@ -48,19 +53,18 @@ def shoe_size_vs_prob():
 
 
 #################
-# #decks vs. percent edge
+# shoe penetration vs. percent edge
 #################
-def decks_vs_pecent_edge():
-   GAMES = 50000
+def shoe_penetration_vs_pecent_edge():
+   GAMES = 10000
    deckEdge = []
-   for x in range(2,9):
-      SHOE_SIZE = x
-      openBlackJackSim(BASIC_OMEGA_II)
-      deckEdge.append(100.0*sume/total_bet)
-   pl.plot(range(2,9), deckEdge, '-o')
-   pl.xlabel('# decks')
+   for shoe_penetration in np.arange(0.1,0.9,0.1):
+      bjSim = openBlackJackSim(BASIC_OMEGA_II, GAMES, SHOE_SIZE, shoe_penetration)
+      deckEdge.append(100.0*bjSim.sume/bjSim.total_bet)
+   pl.plot(np.arange(0.1,0.9,0.1), deckEdge, '-o')
+   pl.xlabel('Shoe Penetration')
    pl.ylabel('Percent Edge')
-   pl.title('Percent Edge vs. Shoe Size, OMEGA II Strategy, Bet Spread = 20')
+   pl.title('shoe penetration vs. percent edge, OMEGA II Strategy, Bet Spread = 20')
    pl.show()
 
 #################
@@ -68,8 +72,9 @@ def decks_vs_pecent_edge():
 #################
 def PDF_of_cnt():
    for strategy,strategy_str in zip(strategies,strategy_strs):
-      openBlackJackSim(strategy)
-      countings = sorted(countings)
+      bjSim = openBlackJackSim(strategy)
+      countings = sorted(bjSim.countings)
+      print(countings)#rafi
       fit = stats.norm.pdf(countings,np.mean(countings), np.std(countings))
       pl.plot(countings, fit, label=strategy_str)
 
@@ -87,8 +92,8 @@ def PMF_of_cnt():
       strategy = strategies[y]
       strat_str = strategy_strs[y]
 
-      openBlackJackSim(strategy)
-      countings = [round(x) for x in countings]
+      bjSim = openBlackJackSim(strategy)
+      countings = [round(x) for x in bjSim.countings]
       countings = sorted(countings)
       unique, counts = np.unique(countings, return_counts=True)
       countDict = dict(zip(unique, [float(x)/len(countings) for x in counts]))
@@ -118,18 +123,15 @@ def PMF_of_cnt():
 # PMF of money won/lost per game
 #################
 def PMF_of_money_won_lost_per_game():
-   for y in range(0, len(strategies)):
-      strategy = strategies[y]
-      strat_str = strategy_strs[y]
-
+   for strategy,strategy_str in zip(strategies,strategy_strs):
       sums = []
       for z in range(0,30): #data points
-         GAMES = 2500 #games per data point
-         openBlackJackSim(strategy)
-         sums.append(sume)
+         GAMES = 250 #games per data point
+         bjSim = openBlackJackSim(strategy,GAMES)
+         sums.append(bjSim.sume)
       sums = sorted(sums)
       fit = stats.norm.pdf(sums, np.mean(sums), np.std(sums))  # this is a fitting indeed
-      pl.plot(sums, fit, label=strat_str)
+      pl.plot(sums, fit, label=strategy_str)
    pl.xlabel('Money won/lost per 2500 games')
    plt.legend()
    pl.title('PMF of money won/lost per 2500 games')
@@ -145,9 +147,9 @@ def PMF_of_money_won_lost_per_game_w_bet_spread_sweep():
       BET_SPREAD = float(y)
       sums = []
       for z in range(0,25):
-         GAMES = 500
-         openBlackJackSim(strategy)
-         sums.append(sume)
+         gameCnt = 20
+         bjSim = openBlackJackSim(strategy,gameCnt,bet_spread=BET_SPREAD)
+         sums.append(bjSim.sume)
       sums = sorted(sums)
       fit = stats.norm.pdf(sums, np.mean(sums), np.std(sums))  # this is a fitting indeed
       currLabel = "BET_SPREAD="+str(y)
@@ -161,17 +163,15 @@ def PMF_of_money_won_lost_per_game_w_bet_spread_sweep():
 #PMF of edge 
 ################
 def PMF_of_edge():
-   for y in range(8,9):
-      strategy = strategies[y]
-      strat_str = strategy_strs[y]
+   for strategy,strategy_str in zip(strategies,strategy_strs):
       edges = []
       for z in range(0,100): #data points
-         GAMES = 1 #games per data point
-         openBlackJackSim(strategy)
-         edges.append(100.0*sume/total_bet)
+         gameCnt = 1 #games per data point
+         bjSim = openBlackJackSim(strategy,gameCnt)
+         edges.append(100.0*bjSim.sume/bjSim.total_bet)
       edges = sorted(edges)
       fit = stats.norm.pdf(edges, np.mean(edges), np.std(edges))  # this is a fitting indeed
-      pl.plot(edges, fit, label=strat_str)
+      pl.plot(edges, fit, label=strategy_str)
    pl.xlabel('Edge per 1000 games')
    plt.legend()
    pl.title('Edge per 1000 games')
@@ -179,8 +179,9 @@ def PMF_of_edge():
 
 if __name__=="__main__":
    # shoe_size_vs_prob()
-   # decks_vs_pecent_edge()
+   # shoe_penetration_vs_pecent_edge()
    # PDF_of_cnt()
+   PMF_of_cnt()
    # PMF_of_money_won_lost_per_game()
    # PMF_of_money_won_lost_per_game_w_bet_spread_sweep()
-   PMF_of_edge()
+   # PMF_of_edge()
