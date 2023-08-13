@@ -464,6 +464,7 @@ class Simulator:
         self.nb_hands = 0
         self.sume = 0.0
         self.total_bet = 0.0
+        #game settings
         self.gameCnt = gameCnt
         self.shoe_size = shoe_size
         self.shoe_penetration = shoe_penetration
