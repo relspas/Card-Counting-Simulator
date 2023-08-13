@@ -8,12 +8,17 @@ At the bottom of `tester.py` comment in or out whichever simulations you'd like 
 
     python tester.py
 
-This is one example counting technique
-Omega II Count:
+Some example counting methods are below:
 
-| 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | J | Q | K | A |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| +1 | +1 | +2 | +2 | +2 | +1 | 0 | -1 | -2 | -2 | -2 | -2 | 0 |
+|Counting method | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | J | Q | K | A |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+Omega II | +1 | +1 | +2 | +2 | +2 | +1 | 0 | -1 | -2 | -2 | -2 | -2 | 0 |
+HI LO | +1 | +1 | +1 | +1 | +1 | 0 | 0 | 0 | -1 | -1 | -1 | -1 | -1 |
+HI OPT I | 0 | +1 | +1 | +1 | +1 | 0 | 0 | 0 | -1 | -1 | -1 | -1 | 0 |
+HI OPT II | 0 | +1 | +2 | +2 | +1 | +1 | 0 | 0 | -2 | -2 | -2 | -2 | 0 |
+HALVES | +0.5 | +1 | +1 | +1.5 | +1 | +0.5 | 0 | -0.5 | -1 | -1 | -1 | -1 | -1 |
+RED SEVEN | +1 | +1 | +1 | +1 | +1 | +0.5 | 0 | 0 | -1 | -1 | -1 | -1 | -1 |
+ZEN | +1 | +1 | +2 | +2 | +2 | +1 | 0 | 0 | -2 | -2 | -2 | -2 | -1 |
 
 So, for example if there is a player-favorable count like +20 by 2 decks remaining, the simulator bets the standard bet times the specified *BET_SPREAD*.
 
